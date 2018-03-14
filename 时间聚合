@@ -1,0 +1,68 @@
+package com.sun.estest;
+
+
+import java.util.List;
+
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
+
+import com.sun.utils.ESTools;
+
+
+public class DateAggs {
+
+	private static Client client= ESTools.buildclient();
+	final static String indexsString="xrs_db";
+	final static String typeString="meitan__dianmei";
+	
+	
+	public static void main(String[] args) {
+		agg();
+	}
+	@SuppressWarnings("unchecked")
+	public static void agg(){
+		SearchRequestBuilder srbnews=client.prepareSearch(indexsString)
+				.setTypes(typeString);
+		
+		DateHistogramBuilder dateagg = AggregationBuilders.dateHistogram("dateagg")
+					.field("publish_time")//字段
+					.interval(DateHistogramInterval.MONTH)//按月来统计
+					.format("yyyy-MM");//格式化时间
+					
+		//按照可以用term查询的语句来统计
+//		TermsBuilder tbCount  = AggregationBuilders.terms("everyday-count")
+//				.field("num")
+//				.subAggregation(
+//						AggregationBuilders.topHits("desc")).size(10);
+//				.include("[0-9]{3}");
+		SearchResponse response =null;
+		
+		try {
+			response = srbnews
+//					.setQuery(QueryBuilders.boolQuery() //先查询后聚合
+//					.must(QueryBuilders.rangeQuery("dateCell.daytime").gte("2017-01-01").lt("2017-05-01")))//时间
+					.addAggregation(dateagg)
+					.setSize(0).execute().actionGet();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		try {
+			Histogram  hdate = response.getAggregations().get("dateagg");
+			List<Histogram.Bucket> buckets = (List<Histogram.Bucket>) hdate.getBuckets();
+			
+			for (Histogram.Bucket bucket : buckets) {
+				 System.out.println(bucket.getKeyAsString() +"  " +bucket.getDocCount());
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+ 
+}
